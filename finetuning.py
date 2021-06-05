@@ -15,7 +15,7 @@ def create_folds(data, num_splits):
 	return data
 
 ####    Import Dependencies - Augmentation    #######################
-from augmentation import Augmentor
+from augmentation import Augmenter
 
 
 ####    Import Dependencies - Modelling    #######################

@@ -11,7 +11,7 @@ def chunks(lst, n):
         yield lst[i:i + n]
         
 
-class Augmentor:
+class Augmenter:
     def __init__(self, config_path):
         """
             augs: list of (category, model) e.g. [('back_translation', None), ('context_word_embs', 'bert-base-cased')]
