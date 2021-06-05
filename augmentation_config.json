@@ -1,0 +1,27 @@
+{
+    "augs": [
+        [
+            "back_translation",
+            null
+        ],
+        [
+            "context_word_embs",
+            "bert-base-cased"
+        ],
+        [
+            "context_word_embs",
+            "xlnet-base-cased"
+        ]
+    ],
+    "device": "cuda",
+    "batch_size": 500,
+    "validation_methods": [
+        "fre",
+        "smog",
+        "gp",
+        "cf",
+        "cli"
+    ],
+    "change_threshold": 0.1,
+    "min_voter": 4
+}
