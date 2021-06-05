@@ -403,9 +403,18 @@ def make_loader(
 	tokenizer, 
 	max_len,
 	batch_size,
-	fold=0
+	fold=0,
+    augmentation=False,
+    augmentation_config_location=None,
 ):
 	train_set, valid_set = data[data['kfold']!=fold], data[data['kfold']==fold]
+
+	if augmentation:
+		augmenter = Augmenter(augmentation_config_location)
+		aug_data = augmenter.generate(train_set)
+		aug_data['kfold'] = fold
+		train_set = pd.concat([train_set, aug_data])
+    
 	train_dataset = DatasetRetriever(train_set, tokenizer, max_len)
 	valid_dataset = DatasetRetriever(valid_set, tokenizer, max_len)
 
@@ -617,7 +626,7 @@ class Evaluator:
 
 ####    CONFIG    #########################################################
 
-def config(train, fold=0, model_weight_location = 'model_output/mlm/'):
+def config(train, fold=0, model_weight_location = 'model_output/mlm/', augmentation=True, augmentation_config_location='augmentation_config.json'):
 	torch.manual_seed(2021)
 	torch.cuda.manual_seed(2021)
 	torch.cuda.manual_seed_all(2021)
@@ -628,7 +637,8 @@ def config(train, fold=0, model_weight_location = 'model_output/mlm/'):
 	model, tokenizer = make_model(model_name=model_weight_location, num_labels=1)
 	train_loader, valid_loader = make_loader(
 		train, tokenizer, max_len=max_len,
-		batch_size=batch_size, fold=fold
+		batch_size=batch_size, fold=fold, 
+		augmentation=augmentation, augmentation_config_location=augmentation_config_location
 	)
 
 	import math
@@ -679,9 +689,9 @@ def config(train, fold=0, model_weight_location = 'model_output/mlm/'):
 
 
 
-def run(train, fold=0, model_weight_location = 'model_output/mlm/', model_ouput_location = 'model_output/finetuning/'):
+def run(train, fold=0, model_weight_location = 'model_output/mlm/', model_ouput_location = 'model_output/finetuning/', augmentation=True, augmentation_config_location='augmentation_config.json'):
 	model, tokenizer, optimizer, scheduler, scaler, \
-		train_loader, valid_loader, result_dict, epochs = config(train, fold, model_weight_location)
+		train_loader, valid_loader, result_dict, epochs = config(train, fold, model_weight_location, augmentation, augmentation_config_location)
 	
 	import time
 	trainer = Trainer(model, optimizer, scheduler, model_ouput_location, scaler)
@@ -720,13 +730,14 @@ def main(args):
 	model_weight_location = args.model_weight_location
 	model_ouput_location = args.model_output_location
 
-
+	augmentation = args.augmentation
+	augmentation_config_location = args.augmentation_config_location
 
 	result_list = []
 	for fold in range(5):
 		print('----')
 		print(f'FOLD: {fold}')
-		result_dict = run(train, fold, model_weight_location, model_ouput_location)
+		result_dict = run(train, fold, model_weight_location, model_ouput_location, augmentation, augmentation_config_location)
 		result_list.append(result_dict)
 		print('----')
 
@@ -741,7 +752,7 @@ def main(args):
 		model.cuda()
 		model.eval()
 		val_index = train[train.kfold==fold].index.tolist()
-		train_loader, val_loader = make_loader(train, tokenizer, 250, 16, fold=fold)
+		train_loader, val_loader = make_loader(train, tokenizer, 250, 16, fold=fold, augmentation=augmentation, augmentation_config_location=augmentation_config_location)
 		# scalar = torch.cuda.amp.GradScaler()
 		scalar = None
 		preds = []
@@ -791,6 +802,10 @@ if __name__ == "__main__":
 	parser.add_argument('-model_weight_location',  default='model_output/mlm/', help='Pretrained model weight location (mlm) Location')
 
 	parser.add_argument('-model_output_location',  default='model_output/finetuning/', help='Model output weight location')
+
+	parser.add_argument('-augmentation', default='true', help='Data augmentation')
+
+	parser.add_argument('-augmentation_config_location', default='augmentation_config.json', help='Data augmentation config')
 
 	args = parser.parse_args()
 	
