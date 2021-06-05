@@ -1,10 +1,6 @@
 {
     "augs": [
         [
-            "back_translation",
-            null
-        ],
-        [
             "context_word_embs",
             "bert-base-cased"
         ],
@@ -14,7 +10,7 @@
         ]
     ],
     "device": "cuda",
-    "batch_size": 500,
+    "batch_size": 256,
     "validation_methods": [
         "fre",
         "smog",

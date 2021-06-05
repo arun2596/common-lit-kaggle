@@ -47,23 +47,24 @@ class Augmenter:
         aug_data = aug_data[['id', 'url_legal', 'license', 'excerpt', 'target', 'standard_error']]
         return aug_data
         
-    def _generate(self, data):
+    def _generate(self, src_data):
         """
             validation_methods: list of ['fre', 'smog', 'gp', 'cf', 'cli']. e.g. ['fre', 'smog', 'gp', 'cf', 'cli']
             change_threshold: acceptable change in percentage
         """
         
         list_of_augmented_data = []
-        
+
+        data = src_data.reset_index(drop=True)
         data['fre_score'] = data['excerpt'].apply(lambda x: textstat.flesch_reading_ease((x)))
         data['smog_score'] = data['excerpt'].apply(lambda x: textstat.smog_index((x)))
         data['gp_score'] = data['excerpt'].apply(lambda x: textstat.gutierrez_polini((x)))
         data['cf_score'] = data['excerpt'].apply(lambda x: textstat.crawford((x)))
         data['cli_score'] = data['excerpt'].apply(lambda x: textstat.coleman_liau_index((x)))
         
-        for i, aug in enumerate(self.augs):
+        for aug in tqdm(self.augs):
             augmented_data = []
-            for d in tqdm(chunks(data['excerpt'].tolist(), self.config['batch_size']), desc='{}/{}:{}'.format(i+1, len(self.augs), aug.name)):
+            for d in chunks(data['excerpt'].tolist(), self.config['batch_size']):
                 augmented_data.extend(aug.augment(d))
             augmented_data = pd.DataFrame(augmented_data, columns=['excerpt'])
 
@@ -85,6 +86,9 @@ class Augmenter:
             def cal_percentage_change(x, col, orig_scores):
                 idx = x['index']
                 orig_score = orig_scores[idx]
+
+                if orig_score == 0:
+                    return -100
 
                 change = (x['{}_score'.format(col)] - orig_score) / orig_score    
                 return change
