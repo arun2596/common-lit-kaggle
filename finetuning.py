@@ -1,6 +1,7 @@
 
 import pandas as pd
 import numpy as np
+import random
 
 
 from sklearn import model_selection
@@ -628,6 +629,8 @@ class Evaluator:
 ####    CONFIG    #########################################################
 
 def config(train, fold=0, model_weight_location = 'model_output/mlm/', augmentation=True, augmentation_config_location='augmentation_config.json'):
+	random.seed(2021)
+	np.random.seed(2021)
 	torch.manual_seed(2021)
 	torch.cuda.manual_seed(2021)
 	torch.cuda.manual_seed_all(2021)
