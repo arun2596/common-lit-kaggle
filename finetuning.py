@@ -734,7 +734,7 @@ def main(args):
 	model_weight_location = args.model_weight_location
 	model_ouput_location = args.model_output_location
 
-	augmentation = args.augmentation
+	augmentation = str(args.augmentation).lower() == 'true'
 	augmentation_config_location = args.augmentation_config_location
 
 	result_list = []
