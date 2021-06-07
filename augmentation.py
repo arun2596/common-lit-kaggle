@@ -1,5 +1,5 @@
-import argparse
 import json
+import datetime
 import pandas as pd
 import textstat
 from tqdm import tqdm
@@ -62,7 +62,8 @@ class Augmenter:
         data['cf_score'] = data['excerpt'].apply(lambda x: textstat.crawford((x)))
         data['cli_score'] = data['excerpt'].apply(lambda x: textstat.coleman_liau_index((x)))
         
-        for aug in tqdm(self.augs):
+        for i, aug in enumerate(self.augs):
+            print('{} {}/{}:{}'.format(datetime.datetime.now(), i+1, len(self.augs), aug.name))
             augmented_data = []
             for d in chunks(data['excerpt'].tolist(), self.config['batch_size']):
                 augmented_data.extend(aug.augment(d))
