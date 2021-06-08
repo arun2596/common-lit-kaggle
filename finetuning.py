@@ -756,7 +756,7 @@ def main(args):
 		model.cuda()
 		model.eval()
 		val_index = train[train.kfold==fold].index.tolist()
-		train_loader, val_loader = make_loader(train, tokenizer, 250, 16, fold=fold, augmentation=augmentation, augmentation_config_location=augmentation_config_location)
+		train_loader, val_loader = make_loader(train, tokenizer, 250, 16, fold=fold, augmentation=False, augmentation_config_location=None)
 		# scalar = torch.cuda.amp.GradScaler()
 		scalar = None
 		preds = []
