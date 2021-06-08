@@ -60,10 +60,9 @@ class Augmenter:
 
         data = src_data.reset_index(drop=True)
         data['fre_score'] = data['excerpt'].apply(lambda x: textstat.flesch_reading_ease((x)))
-        data['smog_score'] = data['excerpt'].apply(lambda x: textstat.smog_index((x)))
+        data['fh_score'] = data['excerpt'].apply(lambda x: textstat.fernandez_huerta((x)))
         data['gp_score'] = data['excerpt'].apply(lambda x: textstat.gutierrez_polini((x)))
-        data['cf_score'] = data['excerpt'].apply(lambda x: textstat.crawford((x)))
-        data['cli_score'] = data['excerpt'].apply(lambda x: textstat.coleman_liau_index((x)))
+        data['sp_score'] = data['excerpt'].apply(lambda x: textstat.szigriszt_pazos((x)))
         
         for i, aug in enumerate(self.augs):
             print('{} {}/{}:{}'.format(datetime.datetime.now(), i+1, len(self.augs), aug.name))
@@ -80,10 +79,9 @@ class Augmenter:
             augmented_data['standard_error'] = -1
 
             augmented_data['fre_score'] = augmented_data['excerpt'].apply(lambda x: textstat.flesch_reading_ease((x)))
-            augmented_data['smog_score'] = augmented_data['excerpt'].apply(lambda x: textstat.smog_index((x)))
+            augmented_data['fh_score'] = augmented_data['excerpt'].apply(lambda x: textstat.fernandez_huerta((x)))
             augmented_data['gp_score'] = augmented_data['excerpt'].apply(lambda x: textstat.gutierrez_polini((x)))
-            augmented_data['cf_score'] = augmented_data['excerpt'].apply(lambda x: textstat.crawford((x)))
-            augmented_data['cli_score'] = augmented_data['excerpt'].apply(lambda x: textstat.coleman_liau_index((x)))
+            augmented_data['sp_score'] = augmented_data['excerpt'].apply(lambda x: textstat.szigriszt_pazos((x)))
             
             augmented_data = augmented_data.reset_index()
 
