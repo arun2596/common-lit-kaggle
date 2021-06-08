@@ -13,13 +13,12 @@
     "batch_size": 128,
     "validation_methods": [
         "fre",
-        "smog",
-        "gp",
-        "cf",
-        "cli"
+        "fh",
+        "sp",
+        "gp"
     ],
-    "change_threshold": 0.1,
-    "min_voter": 4,
+    "change_threshold": 0.05,
+    "min_voter": 3,
     "aug_max": null,
     "aug_p": 0.2
 }
