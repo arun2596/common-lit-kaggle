@@ -23,9 +23,12 @@ class Augmenter:
         self.augs = []
         for cat, model_type in self.config['augs']:
             if cat == 'back_translation':
-                self.augs.append(naw.BackTranslationAug(device=self.config['device']))
+                self.augs.append(naw.BackTranslationAug(
+                    aug_p=self.config['aug_p'], aug_max=self.config['aug_max'], device=self.config['device']))
             elif cat == 'context_word_embs':
-                self.augs.append(naw.ContextualWordEmbsAug(model_path=model_type, device=self.config['device']))
+                self.augs.append(naw.ContextualWordEmbsAug(
+                    aug_p=self.config['aug_p'], aug_max=self.config['aug_max'], 
+                    model_path=model_type, device=self.config['device']))
     
     def filter(self, aug_data):
         def cal_change_score(x, threshold, voters):

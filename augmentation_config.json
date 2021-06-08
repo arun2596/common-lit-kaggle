@@ -19,5 +19,7 @@
         "cli"
     ],
     "change_threshold": 0.1,
-    "min_voter": 4
+    "min_voter": 4,
+    "aug_max": null,
+    "aug_p": 0.2
 }
