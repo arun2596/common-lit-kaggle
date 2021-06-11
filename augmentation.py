@@ -101,6 +101,20 @@ class Augmenter:
                 augmented_data['{}_score_change'.format(c)] = augmented_data.apply(
                     lambda x: cal_percentage_change(x, c, orig_scores), axis=1)
 
+            def avg_score_change(x, cols):
+                changes = []
+                for c in cols:
+                    changes.append(x['{}_score_change'.format(c)])
+                return round(sum(changes)/ len(changes), 2)
+
+            augmented_data['avg_score_change'] = augmented_data.apply(
+                lambda x: avg_score_change(x, self.config['validation_methods']), axis=1)
+            
+            # Update target according to avg_score_change
+            def update_target(x):
+                return x['target'] * (1 + x['avg_score_change'])
+            augmented_data['target'] = augmented_data.apply(lambda x: update_target(x), axis=1)
+
             list_of_augmented_data.append(augmented_data)
     
         return pd.concat(list_of_augmented_data)
