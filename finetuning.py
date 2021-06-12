@@ -82,7 +82,7 @@ def convert_examples_to_features(data, tokenizer, max_len, is_test=False):
 
 
 class DatasetRetriever(Dataset):
-	def __init__(self, data, tokenizer, max_len, is_test=False):
+	def __init__(self, data, tokenizer, max_len, is_test=False, is_weighted= False):
 		self.data = data
 		if 'excerpt' in self.data.columns:
 			self.excerpts = self.data.excerpt.values.tolist()
@@ -92,6 +92,9 @@ class DatasetRetriever(Dataset):
 		self.tokenizer = tokenizer
 		self.is_test = is_test
 		self.max_len = max_len
+		self.is_weighted = is_weighted
+		if self.is_weighted:
+			self.weights = self.data.weights.values.tolist()
 	
 	def __len__(self):
 		return len(self.data)
@@ -102,12 +105,25 @@ class DatasetRetriever(Dataset):
 			excerpt, self.tokenizer, 
 			self.max_len, self.is_test
 		)
-		return {
-			'input_ids':torch.tensor(features['input_ids'], dtype=torch.long),
-			'token_type_ids':torch.tensor(features['token_type_ids'], dtype=torch.long),
-			'attention_mask':torch.tensor(features['attention_mask'], dtype=torch.long),
-			'label':torch.tensor(label, dtype=torch.double),
-		}
+
+		if self.is_weighted:
+			weights = self.weights[item]
+			return {
+				'input_ids':torch.tensor(features['input_ids'], dtype=torch.long),
+				'token_type_ids':torch.tensor(features['token_type_ids'], dtype=torch.long),
+				'attention_mask':torch.tensor(features['attention_mask'], dtype=torch.long),
+				'label':torch.tensor(label, dtype=torch.double),
+				'weights':torch.tensor(weights, dtype=torch.double),
+
+			}
+
+		else:
+			return {
+				'input_ids':torch.tensor(features['input_ids'], dtype=torch.long),
+				'token_type_ids':torch.tensor(features['token_type_ids'], dtype=torch.long),
+				'attention_mask':torch.tensor(features['attention_mask'], dtype=torch.long),
+				'label':torch.tensor(label, dtype=torch.double),
+			}
 
 
 
@@ -195,7 +211,7 @@ class CommonLitModel(nn.Module):
 		return ((loss,) + output) if loss is not None else output
 
 
-####    LAMP OPTIMIZER    #######################################################
+####    LAMB OPTIMIZER    #######################################################
 
 
 
@@ -316,15 +332,22 @@ class Lamb(Optimizer):
 
 #### DIFFERENTIAL LEARNING RATE AND WEIGHT DECAY    ################################
 
-def get_optimizer_params(model):
+def get_optimizer_params(model, base_model=''):
 	# differential learning rate and weight decay
 	param_optimizer = list(model.named_parameters())
-	learning_rate = 5e-5
+	learning_rate = 2e-5
 	no_decay = ['bias', 'gamma', 'beta']
-	group1=['layer.0.','layer.1.','layer.2.','layer.3.']
-	group2=['layer.4.','layer.5.','layer.6.','layer.7.']    
-	group3=['layer.8.','layer.9.','layer.10.','layer.11.']
-	group_all=['layer.0.','layer.1.','layer.2.','layer.3.','layer.4.','layer.5.','layer.6.','layer.7.','layer.8.','layer.9.','layer.10.','layer.11.']
+	if base_model == 'roberta-base':
+		group1=['layer.0.','layer.1.','layer.2.','layer.3.']
+		group2=['layer.4.','layer.5.','layer.6.','layer.7.']    
+		group3=['layer.8.','layer.9.','layer.10.','layer.11.']
+		group_all=['layer.0.','layer.1.','layer.2.','layer.3.','layer.4.','layer.5.','layer.6.','layer.7.','layer.8.','layer.9.','layer.10.','layer.11.']
+	elif base_model == 'roberta-large':
+		group1=['layer.0.','layer.1.','layer.2.','layer.3.', 'layer.4.','layer.5.','layer.6.','layer.7.'] 
+		group2=['layer.8.','layer.9.','layer.10.','layer.11.','layer.12.','layer.13.','layer.14.','layer.15.']
+		group3=['layer.16.','layer.17.','layer.18.','layer.19.','layer.20.','layer.21.','layer.22.','layer.23.']
+		group_all=group1+group2+group3
+
 	optimizer_parameters = [
 		{'params': [p for n, p in model.roberta.named_parameters() if not any(nd in n for nd in no_decay) and not any(nd in n for nd in group_all)],'weight_decay': 0.01},
 		{'params': [p for n, p in model.roberta.named_parameters() if not any(nd in n for nd in no_decay) and any(nd in n for nd in group1)],'weight_decay': 0.01, 'lr': learning_rate/2.6},
@@ -344,20 +367,20 @@ def get_optimizer_params(model):
 
 
 
-def make_model(model_name='../content/roberta-base-5-epochs/', num_labels=1):
-	tokenizer = AutoTokenizer.from_pretrained('roberta-base')
+def make_model(model_name='../content/roberta-base-5-epochs/', tokenizer_name= '', num_labels=1):
+	tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
 	config = AutoConfig.from_pretrained(model_name)
 	config.update({'num_labels':num_labels})
 	model = CommonLitModel(model_name, config=config)
 	return model, tokenizer
 
-def make_optimizer(model, optimizer_name="AdamW"):
-	optimizer_grouped_parameters = get_optimizer_params(model)
+def make_optimizer(model, optimizer_name="AdamW", base_model=''):
+	optimizer_grouped_parameters = get_optimizer_params(model, base_model)
 	kwargs = {
-			'lr':5e-5,
+			'lr':2e-5,
 			'weight_decay':0.01,
-			# 'betas': (0.9, 0.98),
-			# 'eps': 1e-06
+			'betas': (0.9, 0.98),
+			'eps': 1e-06
 	}
 	if optimizer_name == "LAMB":
 		optimizer = Lamb(optimizer_grouped_parameters, **kwargs)
@@ -406,8 +429,9 @@ def make_loader(
 	max_len,
 	batch_size,
 	fold=0,
-    augmentation=False,
-    augmentation_config_location=None,
+	augmentation=False,
+	augmentation_config_location=None,
+	is_weighted = False
 ):
 	train_set, valid_set = data[data['kfold']!=fold], data[data['kfold']==fold]
 
@@ -416,9 +440,22 @@ def make_loader(
 		aug_data = augmenter.generate(train_set)
 		aug_data['kfold'] = fold
 		train_set = pd.concat([train_set, aug_data])
-    
-	train_dataset = DatasetRetriever(train_set, tokenizer, max_len)
-	valid_dataset = DatasetRetriever(valid_set, tokenizer, max_len)
+
+
+	if is_weighted:
+		pow_fn = 2
+		weight_range = [0.7,1.3]
+		train_set.loc[:,'weights'] = 1 - ((train_set['standard_error']**pow_fn) - (train_set['standard_error'].min()**pow_fn)) / (train_set['standard_error'].max()**pow_fn)
+		train_set.loc[:,'weights'] = weight_range[0] + (weight_range[1] - weight_range[0])*train_set['weights']
+
+		valid_set.loc[:,'weights'] = 1 - ((valid_set['standard_error']**pow_fn) - (valid_set['standard_error'].min()**pow_fn)) / (valid_set['standard_error'].max()**pow_fn)
+		valid_set.loc[:,'weights'] = weight_range[0] + (weight_range[1] - weight_range[0])*valid_set['weights']
+
+
+
+
+	train_dataset = DatasetRetriever(train_set, tokenizer, max_len, is_weighted=is_weighted)
+	valid_dataset = DatasetRetriever(valid_set, tokenizer, max_len, is_weighted=is_weighted)
 
 	train_sampler = RandomSampler(train_dataset)
 	train_loader = DataLoader(
@@ -472,7 +509,7 @@ class AverageMeter(object):
 
 
 class Trainer:
-	def __init__(self, model, optimizer, scheduler, model_output_location, scalar=None, log_interval=1, evaluate_interval=1):
+	def __init__(self, model, optimizer, scheduler, model_output_location, scalar=None, log_interval=1, evaluate_interval=10, is_weighted=False):
 		self.model = model
 		self.optimizer = optimizer
 		self.scheduler = scheduler
@@ -481,11 +518,13 @@ class Trainer:
 		self.evaluate_interval = evaluate_interval
 		self.evaluator = Evaluator(self.model, self.scalar)
 		self.model_ouput_location = model_output_location
+		self.is_weighted = is_weighted
 
 	def train(self, train_loader, valid_loader, epoch, 
 			  result_dict, tokenizer, fold):
 		count = 0
 		losses = AverageMeter()
+		weighted_losses = AverageMeter()
 		self.model.train()
 		
 		for batch_idx, batch_data in enumerate(train_loader):
@@ -493,6 +532,11 @@ class Trainer:
 				batch_data['attention_mask'], batch_data['token_type_ids'], batch_data['label']
 			input_ids, attention_mask, token_type_ids, labels = \
 				input_ids.cuda(), attention_mask.cuda(), token_type_ids.cuda(), labels.cuda()
+
+			if self.is_weighted:
+				weights =  batch_data['weights']
+				weights = weights.cuda()
+
 			
 			if self.scalar is not None:
 				with torch.cuda.amp.autocast():
@@ -518,6 +562,13 @@ class Trainer:
 				self.scalar.scale(loss).backward()
 				self.scalar.step(self.optimizer)
 				self.scalar.update()
+			
+			elif self.is_weighted:
+				weighted_loss = torch.sqrt(torch.mean(weights.view(-1)*torch.square(logits-labels.view(-1))))
+				weighted_losses.update(weighted_loss.item(), input_ids.size(0))
+				weighted_loss.backward() 
+				self.optimizer.step()
+
 			else:
 				loss.backward()
 				self.optimizer.step()
@@ -527,10 +578,17 @@ class Trainer:
 
 			if batch_idx % self.log_interval == 0:
 				_s = str(len(str(len(train_loader.sampler))))
-				ret = [
-					('epoch: {:0>3} [{: >' + _s + '}/{} ({: >3.0f}%)]').format(epoch, count, len(train_loader.sampler), 100 * count / len(train_loader.sampler)),
-					'train_loss: {: >4.5f}'.format(losses.avg),
-				]
+				if self.is_weighted:
+					ret = [
+						('epoch: {:0>3} [{: >' + _s + '}/{} ({: >3.0f}%)]').format(epoch, count, len(train_loader.sampler), 100 * count / len(train_loader.sampler)),
+						'train_loss: {: >4.5f}'.format(losses.avg),'weighted_loss: {: >4.5f}'.format(weighted_losses.avg),
+					]
+				else:
+					ret = [
+						('epoch: {:0>3} [{: >' + _s + '}/{} ({: >3.0f}%)]').format(epoch, count, len(train_loader.sampler), 100 * count / len(train_loader.sampler)),
+						'train_loss: {: >4.5f}'.format(losses.avg),
+						]
+
 				print(', '.join(ret))
 			
 			if batch_idx % self.evaluate_interval == 0:
@@ -628,33 +686,34 @@ class Evaluator:
 
 ####    CONFIG    #########################################################
 
-def config(train, fold=0, model_weight_location = 'model_output/mlm/', augmentation=True, augmentation_config_location='augmentation_config.json'):
+
+def config(train, fold=0, model_weight_location = 'model_output/mlm/', augmentation=True, augmentation_config_location='augmentation_config.json', tokenizer_name='', base_model='', is_weighted=False):
 	random.seed(2021)
 	np.random.seed(2021)
 	torch.manual_seed(2021)
 	torch.cuda.manual_seed(2021)
 	torch.cuda.manual_seed_all(2021)
-	epochs = 8
+	epochs = 5
 	max_len = 250
-	batch_size = 16
+	batch_size = 8
 
-	model, tokenizer = make_model(model_name=model_weight_location, num_labels=1)
+	model, tokenizer = make_model(model_name=model_weight_location, tokenizer_name=tokenizer_name, num_labels=1)
 	train_loader, valid_loader = make_loader(
 		train, tokenizer, max_len=max_len,
 		batch_size=batch_size, fold=fold, 
-		augmentation=augmentation, augmentation_config_location=augmentation_config_location
+		augmentation=augmentation, augmentation_config_location=augmentation_config_location, is_weighted=is_weighted
 	)
 
 	import math
 	num_update_steps_per_epoch = len(train_loader)
 	max_train_steps = epochs * num_update_steps_per_epoch
-	warmup_proportion = 0
+	warmup_proportion = 0.06
 	if warmup_proportion != 0:
-		warmup_steps = math.ceil((max_train_steps * 2) / 100)
+		warmup_steps = math.ceil((max_train_steps * 6) / 100)
 	else:
 		warmup_steps = 0
 
-	optimizer = make_optimizer(model, "AdamW")
+	optimizer = make_optimizer(model, "AdamW", base_model)
 	scheduler = make_scheduler(
 		optimizer, decay_name='cosine_warmup', 
 		t_max=max_train_steps, 
@@ -693,12 +752,12 @@ def config(train, fold=0, model_weight_location = 'model_output/mlm/', augmentat
 
 
 
-def run(train, fold=0, model_weight_location = 'model_output/mlm/', model_ouput_location = 'model_output/finetuning/', augmentation=True, augmentation_config_location='augmentation_config.json'):
+def run(train, fold=0, model_weight_location = 'model_output/mlm/', model_ouput_location = 'model_output/finetuning/', augmentation=True, augmentation_config_location='augmentation_config.json', tokenizer_name='', base_model='', is_weighted=False):
 	model, tokenizer, optimizer, scheduler, scaler, \
-		train_loader, valid_loader, result_dict, epochs = config(train, fold, model_weight_location, augmentation, augmentation_config_location)
+		train_loader, valid_loader, result_dict, epochs = config(train, fold, model_weight_location, augmentation, augmentation_config_location, tokenizer_name, base_model, is_weighted)
 	
 	import time
-	trainer = Trainer(model, optimizer, scheduler, model_ouput_location, scaler)
+	trainer = Trainer(model, optimizer, scheduler, model_ouput_location, scaler, is_weighted=is_weighted)
 	train_time_list = []
 
 	for epoch in range(epochs):
@@ -729,19 +788,31 @@ def main(args):
 
 	train = pd.read_csv(args.train_data)
 	test = pd.read_csv(args.test_data)
+
+	is_weighted = str(args.is_weighted).lower() != 'false'
+	
+	if is_weighted:
+		print('WARNING !! WE ARE USING  STANDARD ERROR WEIGHTS FOR LOSS')
+		# dropping one row which had 0 standard error 
+		train = train[train['standard_error']!=0].reset_index(drop=True)
+
 	train = create_folds(train, num_splits=5)
 
 	model_weight_location = args.model_weight_location
 	model_ouput_location = args.model_output_location
+	base_model = args.base_model
+	tokenizer_name = args.base_model
 
 	augmentation = str(args.augmentation).lower() == 'true'
 	augmentation_config_location = args.augmentation_config_location
+
+	
 
 	result_list = []
 	for fold in range(5):
 		print('----')
 		print(f'FOLD: {fold}')
-		result_dict = run(train, fold, model_weight_location, model_ouput_location, augmentation, augmentation_config_location)
+		result_dict = run(train, fold, model_weight_location, model_ouput_location, augmentation, augmentation_config_location, tokenizer_name, base_model, is_weighted)
 		result_list.append(result_dict)
 		print('----')
 
@@ -749,14 +820,14 @@ def main(args):
 
 	oof = np.zeros(len(train))
 	for fold in tqdm(range(5), total=5):
-		model, tokenizer = make_model(model_weight_location)
+		model, tokenizer = make_model(model_weight_location, tokenizer_name)
 		model.load_state_dict(
 			torch.load(model_ouput_location + f'model{fold}.bin')
 		)
 		model.cuda()
 		model.eval()
 		val_index = train[train.kfold==fold].index.tolist()
-		train_loader, val_loader = make_loader(train, tokenizer, 250, 16, fold=fold, augmentation=False, augmentation_config_location=None)
+		train_loader, val_loader = make_loader(train, tokenizer, 250, 16, fold=fold, augmentation=False, augmentation_config_location=None, is_weighted=False)
 		# scalar = torch.cuda.amp.GradScaler()
 		scalar = None
 		preds = []
@@ -796,8 +867,8 @@ import argparse
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='parameters for data and weights location',
-                                 prefix_chars='-',
-                                 )
+								 prefix_chars='-',
+								 )
 
 	parser.add_argument('-train_data',  default='data/raw/train.csv', help='Train Data Location')
 
@@ -810,6 +881,11 @@ if __name__ == "__main__":
 	parser.add_argument('-augmentation', default='true', help='Data augmentation')
 
 	parser.add_argument('-augmentation_config_location', default='augmentation_config.json', help='Data augmentation config')
+
+	parser.add_argument('-base_model',  default='roberta-base', help='base model name')
+
+	parser.add_argument('-is_weighted',  default='false', help='add weights for loss function')
+
 
 	args = parser.parse_args()
 	

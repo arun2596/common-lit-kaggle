@@ -56,11 +56,11 @@ class TrainConfig:
 	config_name= 'roberta-base'
 	tokenizer_name= 'roberta-base'
 	use_slow_tokenizer= True
-	per_device_train_batch_size= 8
-	per_device_eval_batch_size= 8
-	learning_rate= 5e-5
+	per_device_train_batch_size= 4
+	per_device_eval_batch_size= 4
+	learning_rate= 2e-5
 	weight_decay= 0.0
-	num_train_epochs= 1 # change to 5
+	num_train_epochs= 2 # change to 5
 	max_train_steps= None
 	gradient_accumulation_steps= 1
 	lr_scheduler_type= 'constant_with_warmup'
@@ -83,7 +83,12 @@ def main(input_args):
 	args = TrainConfig()
 	args.train_file = input_args.mlm_data_train
 	args.validation_file = input_args.mlm_data_train
+	args.model_name_or_path = input_args.base_model
+	args.config_name = input_args.base_model
+	args.tokenizer_name = input_args.base_model
+	args.output_dir = input_args.model_output_location
 	output_dir = input_args.model_output_location
+
 
 
 
@@ -299,6 +304,8 @@ if __name__ == "__main__":
 	parser.add_argument('-mlm_data_val',  default='data/mlm_data/mlm_data_val.csv', help='mlm validation data save location')
 
 	parser.add_argument('-model_output_location', default='model_output/mlm', help= 'model weights output location')
+
+	parser.add_argument('-base_model',  default='roberta-base', help='base model name')
 	
 	input_args = parser.parse_args()
 
