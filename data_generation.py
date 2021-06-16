@@ -35,7 +35,7 @@ def update_config(orig_config_path, new_config_path, new_config):
 def augment(name, config):
     num_fold = 5
     seed = 2021
-    data_dir = os.path.join('data', 'augmentation')
+    data_dir = os.path.join('data', 'aug')
     
     dataset = pd.read_csv('data/raw/train.csv')
     dataset = create_folds(dataset, num_splits=num_fold, seed=seed)
@@ -69,14 +69,19 @@ def augment(name, config):
 
 if __name__ == "__main__":
     names = [
+        'bert_p5',
+        'bert_p10',
         'bert_p20',
         'bert_p40',
         'bert_p60',
+        'roberta_p10',
+        'roberta_p20',
+        'xlnet_p10',
         'xlnet_p20',
-        'xlnet_p40',
-        'xlnet_p60',
     ]
     configs = [
+        {'aug_p': 0.05},
+        {'aug_p': 0.1},
         {'aug_p': 0.2},
         {'aug_p': 0.4},
         {'aug_p': 0.6},
@@ -84,7 +89,16 @@ if __name__ == "__main__":
             "augs": [
                 [
                     "context_word_embs",
-                    "xlnet-base-cased"
+                    "roberta-base",
+                ]
+            ],
+            'aug_p': 0.1
+        },
+        {
+            "augs": [
+                [
+                    "context_word_embs",
+                    "roberta-base",
                 ]
             ],
             'aug_p': 0.2
@@ -96,7 +110,7 @@ if __name__ == "__main__":
                     "xlnet-base-cased"
                 ]
             ],
-            'aug_p': 0.4
+            'aug_p': 0.1
         },
         {
             "augs": [
@@ -105,7 +119,7 @@ if __name__ == "__main__":
                     "xlnet-base-cased"
                 ]
             ],
-            'aug_p': 0.6
+            'aug_p': 0.2
         }
     ]
     
