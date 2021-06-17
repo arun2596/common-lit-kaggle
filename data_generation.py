@@ -35,7 +35,7 @@ def update_config(orig_config_path, new_config_path, new_config):
 def augment(name, config):
     num_fold = 5
     seed = 2021
-    data_dir = os.path.join('data', 'aug')
+    data_dir = os.path.join('data', 'aug_data')
     
     dataset = pd.read_csv('data/raw/train.csv')
     dataset = create_folds(dataset, num_splits=num_fold, seed=seed)
