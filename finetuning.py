@@ -787,6 +787,11 @@ def run(train, fold=0, model_weight_location = 'model_output/mlm/', model_ouput_
 def main(args):
 
 	train = pd.read_csv(args.train_data)
+	if args.aug_data != '' and args.aug_data is not None:
+		train_size = len(train)
+		aug = pd.read_csv(args.aug_data)
+		train = pd.concat([train, aug]).reset_index(drop=True)
+		print('Used aug data. Increased size from {} to {}'.format(train_size, len(train)))
 	test = pd.read_csv(args.test_data)
 
 	is_weighted = str(args.is_weighted).lower() != 'false'
@@ -871,14 +876,14 @@ if __name__ == "__main__":
 								 )
 
 	parser.add_argument('-train_data',  default='data/raw/train.csv', help='Train Data Location')
-
+	parser.add_argument('-aug_data',  default='', help='aug Data Location')
 	parser.add_argument('-test_data',  default='data/raw/test.csv', help='Test Data Location')
 
 	parser.add_argument('-model_weight_location',  default='model_output/mlm/', help='Pretrained model weight location (mlm) Location')
 
 	parser.add_argument('-model_output_location',  default='model_output/finetuning/', help='Model output weight location')
 
-	parser.add_argument('-augmentation', default='true', help='Data augmentation')
+	parser.add_argument('-augmentation', default='false', help='Data augmentation')
 
 	parser.add_argument('-augmentation_config_location', default='augmentation_config.json', help='Data augmentation config')
 

@@ -60,7 +60,7 @@ class TrainConfig:
 	per_device_eval_batch_size= 4
 	learning_rate= 2e-5
 	weight_decay= 0.0
-	num_train_epochs= 2 # change to 5
+	num_train_epochs= 5 # change to 5
 	max_train_steps= None
 	gradient_accumulation_steps= 1
 	lr_scheduler_type= 'constant_with_warmup'
@@ -296,7 +296,7 @@ if __name__ == "__main__":
 								 )
 
 	parser.add_argument('-train_data',  default='data/raw/train.csv', help='Train Data Location')
-
+	parser.add_argument('-aug_data',  default='', help='aug Data Location')
 	parser.add_argument('-test_data',  default='data/raw/test.csv', help='Test Data Location')
 
 	parser.add_argument('-mlm_data_train',  default='data/mlm_data/mlm_data.csv', help='mlm_train data save location')
@@ -312,6 +312,11 @@ if __name__ == "__main__":
 
 
 	train = pd.read_csv(input_args.train_data)
+	if input_args.aug_data != '' and input_args.aug_data is not None:
+		train_size = len(train)
+		aug = pd.read_csv(input_args.aug_data)
+		train = pd.concat([train, aug])
+		print('Used aug data. Increased size from {} to {}'.format(train_size, len(train)))
 	test = pd.read_csv(input_args.test_data)
 
 	mlm_data = train[['excerpt']]
